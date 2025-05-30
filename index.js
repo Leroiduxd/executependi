@@ -1,71 +1,66 @@
-import express from 'express';
-import { ethers } from 'ethers';
-import dotenv from 'dotenv';
-import fetch from 'node-fetch';
-
-dotenv.config();
+require('dotenv').config();
+const express = require('express');
+const { ethers } = require('ethers');
+const axios = require('axios');
+const fs = require('fs');
 
 const app = express();
-app.use(express.json());
+const port = process.env.PORT || 3000;
 
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+const RPC_URL = process.env.RPC_URL;
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
-const abi = [
-  {
-    "inputs": [
-      { "internalType": "uint256", "name": "orderId", "type": "uint256" },
-      { "internalType": "bytes", "name": "proof", "type": "bytes" }
-    ],
-    "name": "executePendingOrder",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-];
+const abi = JSON.parse(fs.readFileSync('abi.json'));
 
-const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, abi, wallet);
+// Connect with custom chainId for Pharos (686000)
+const customNetwork = {
+  chainId: 686000,
+  name: 'pharos-testnet'
+};
 
-app.post('/run', async (req, res) => {
-  const { orderId, assetIndex } = req.body;
+const provider = new ethers.providers.JsonRpcProvider({
+  url: RPC_URL,
+  skipFetchSetup: true
+}, customNetwork);
 
-  if (orderId === undefined || assetIndex === undefined) {
-    return res.status(400).json({ error: 'Missing orderId or assetIndex' });
-  }
+const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet);
 
+app.get('/execute-all', async (req, res) => {
   try {
-    console.log("Received request to execute order");
-    console.log("orderId:", orderId);
-    console.log("assetIndex:", assetIndex);
+    const result = await contract.getAllPendingOrders();
+    const orderIds = result[0];
+    const assetIndexes = result[2];
 
-    const proofResponse = await fetch('https://proof-production.up.railway.app/get-proof', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ index: assetIndex })
-    });
+    const executions = [];
 
-    const proofData = await proofResponse.json();
+    for (let i = 0; i < orderIds.length; i++) {
+      const orderId = orderIds[i];
+      const assetIndex = assetIndexes[i].toNumber();
 
-    if (!proofData.proof_bytes) {
-      console.error("Invalid proof response from oracle:", proofData);
-      return res.status(500).json({ error: 'Invalid proof response', data: proofData });
+      const response = await axios.post('https://proof-production.up.railway.app/get-proof', {
+        index: assetIndex
+      });
+
+      const proof = response.data.proof_bytes;
+
+      const tx = await contract.executePendingOrder(orderId, proof);
+      await tx.wait();
+
+      executions.push({
+        orderId: orderId.toString(),
+        txHash: tx.hash
+      });
     }
 
-    const proof = proofData.proof_bytes;
-
-    console.log("Proof length:", proof.length);
-    console.log("Proof preview:", proof.slice(0, 80));
-
-    const tx = await contract.executePendingOrder(orderId, proof);
-    console.log("Transaction sent:", tx.hash);
-    await tx.wait();
-
-    res.json({ status: 'success', txHash: tx.hash });
-  } catch (error) {
-    console.error("Error during transaction:", error);
-    res.status(500).json({ status: 'error', message: error.message });
+    res.json({ status: 'success', executed: executions });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Execution failed', message: err.message });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(port, () => {
+  console.log(`Executor server running on port ${port}`);
+});

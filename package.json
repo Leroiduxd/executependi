@@ -1,15 +1,15 @@
 {
-  "name": "execute-pending-order-api",
+  "name": "executePendingOrdersAPI",
   "version": "1.0.0",
+  "description": "Fetch and execute Brokex pending orders",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
+    "axios": "^1.6.7",
     "dotenv": "^16.3.1",
-    "ethers": "^6.7.0",
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.2"
+    "ethers": "^5.7.2",
+    "express": "^4.18.2"
   }
 }

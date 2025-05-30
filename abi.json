@@ -1,0 +1,29 @@
+[
+  {
+    "inputs": [],
+    "name": "getAllPendingOrders",
+    "outputs": [
+      { "internalType": "uint256[]", "name": "orderIds", "type": "uint256[]" },
+      { "internalType": "address[]", "name": "users", "type": "address[]" },
+      { "internalType": "uint256[]", "name": "assetIndexes", "type": "uint256[]" },
+      { "internalType": "uint256[]", "name": "usdSizes", "type": "uint256[]" },
+      { "internalType": "uint256[]", "name": "leverages", "type": "uint256[]" },
+      { "internalType": "bool[]", "name": "isLongs", "type": "bool[]" },
+      { "internalType": "uint256[]", "name": "slPrices", "type": "uint256[]" },
+      { "internalType": "uint256[]", "name": "tpPrices", "type": "uint256[]" },
+      { "internalType": "uint256[]", "name": "timestamps", "type": "uint256[]" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "orderId", "type": "uint256" },
+      { "internalType": "bytes", "name": "proof", "type": "bytes" }
+    ],
+    "name": "executePendingOrder",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
