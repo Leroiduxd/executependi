@@ -15,7 +15,7 @@ const abi = JSON.parse(fs.readFileSync('abi.json'));
 
 // Connect with custom chainId for Pharos (686000)
 const customNetwork = {
-  chainId: 686000,
+  chainId: 688688,
   name: 'pharos-testnet'
 };
 
