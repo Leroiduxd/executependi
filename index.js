@@ -34,6 +34,10 @@ app.post('/run', async (req, res) => {
   }
 
   try {
+    console.log("Received request to execute order");
+    console.log("orderId:", orderId);
+    console.log("assetIndex:", assetIndex);
+
     const proofResponse = await fetch('https://proof-production.up.railway.app/get-proof', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,16 +47,22 @@ app.post('/run', async (req, res) => {
     const proofData = await proofResponse.json();
 
     if (!proofData.proof_bytes) {
+      console.error("Invalid proof response from oracle:", proofData);
       return res.status(500).json({ error: 'Invalid proof response', data: proofData });
     }
 
     const proof = proofData.proof_bytes;
 
+    console.log("Proof length:", proof.length);
+    console.log("Proof preview:", proof.slice(0, 80));
+
     const tx = await contract.executePendingOrder(orderId, proof);
+    console.log("Transaction sent:", tx.hash);
     await tx.wait();
 
     res.json({ status: 'success', txHash: tx.hash });
   } catch (error) {
+    console.error("Error during transaction:", error);
     res.status(500).json({ status: 'error', message: error.message });
   }
 });
