@@ -21,6 +21,19 @@ const abi = [
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "orderId", "type": "uint256" }
+    ],
+    "name": "getPendingOrder",
+    "outputs": [
+      { "internalType": "uint256", "name": "orderId", "type": "uint256" },
+      { "internalType": "uint256", "name": "assetIndex", "type": "uint256" },
+      { "internalType": "address", "name": "user", "type": "address" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -34,6 +47,17 @@ app.post('/run', async (req, res) => {
   }
 
   try {
+    console.log('🔍 Vérification de l’ordre avec orderId:', orderId);
+    let orderInfo;
+    try {
+      orderInfo = await contract.getPendingOrder(orderId);
+      console.log('✅ Ordre trouvé pour l’utilisateur :', orderInfo.user);
+    } catch (err) {
+      console.error('❌ Impossible de récupérer l’ordre :', err.message);
+      return res.status(404).json({ error: 'Order not found or not accessible' });
+    }
+
+    console.log('📡 Récupération de la preuve pour index:', index);
     const response = await fetch('https://proof-production.up.railway.app/get-proof', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,18 +67,25 @@ app.post('/run', async (req, res) => {
     const data = await response.json();
 
     if (!data.proof_bytes) {
-      return res.status(500).json({ error: 'Failed to fetch proof from external API' });
+      console.error('❌ Preuve invalide ou absente');
+      return res.status(502).json({ error: 'Invalid proof data returned from oracle' });
     }
 
     const proof = data.proof_bytes;
+    console.log('📦 Preuve récupérée. Taille :', proof.length);
+
+    console.log('🚀 Envoi de la transaction executePendingOrder...');
     const tx = await contract.executePendingOrder(orderId, proof);
     await tx.wait();
 
+    console.log('✅ Transaction confirmée :', tx.hash);
     res.json({ status: 'success', txHash: tx.hash });
   } catch (error) {
+    console.error('🔥 Erreur pendant l’exécution :', error);
     res.status(500).json({ status: 'error', message: error.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Serveur actif sur le port ${PORT}`));
+
