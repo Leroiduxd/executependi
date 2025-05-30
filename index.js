@@ -29,24 +29,26 @@ const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, abi, wallet);
 app.post('/run', async (req, res) => {
   const { orderId, assetIndex } = req.body;
 
-  if (!orderId || assetIndex === undefined) {
+  if (orderId === undefined || assetIndex === undefined) {
     return res.status(400).json({ error: 'Missing orderId or assetIndex' });
   }
 
   try {
-    const response = await fetch('https://proof-production.up.railway.app/get-proof', {
+    const proofResponse = await fetch('https://proof-production.up.railway.app/get-proof', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ index: assetIndex })
     });
 
-    const data = await response.json();
+    const proofData = await proofResponse.json();
 
-    if (!data.proof_bytes) {
-      return res.status(500).json({ error: 'Invalid proof response from oracle API' });
+    if (!proofData.proof_bytes) {
+      return res.status(500).json({ error: 'Invalid proof response', data: proofData });
     }
 
-    const tx = await contract.executePendingOrder(orderId, data.proof_bytes);
+    const proof = proofData.proof_bytes;
+
+    const tx = await contract.executePendingOrder(orderId, proof);
     await tx.wait();
 
     res.json({ status: 'success', txHash: tx.hash });
